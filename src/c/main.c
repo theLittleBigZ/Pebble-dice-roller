@@ -22,8 +22,7 @@ static const int DEFAULT_INDEX = 3;  // start on d6
 #define ANIM_BASE_MS   60
 
 // ── Accel debounce ───────────────────────────────────────────────────────────
-#define ACCEL_DEBOUNCE_MS 500
-static uint32_t s_last_accel_ms = 0;
+// (handled by unsubscribing during roll — no timestamp needed)
 
 // ── State ────────────────────────────────────────────────────────────────────
 static Window    *s_window;
@@ -58,6 +57,11 @@ static void update_result(int value) {
 }
 
 // ── Roll animation ────────────────────────────────────────────────────────────
+static void resubscribe_accel_callback(void *context) {
+  s_anim_timer = NULL;
+  accel_tap_service_subscribe(accel_tap_handler);
+}
+
 static void anim_timer_callback(void *context) {
   s_anim_timer = NULL;  // timer has fired; clear handle first
 
@@ -71,6 +75,9 @@ static void anim_timer_callback(void *context) {
     text_layer_set_text(s_hint_layer, "SELECT or shake");
     s_rolling = false;
     vibes_short_pulse();
+    // Re-subscribe only after 600ms — long enough for the vibration
+    // motor to settle so it cannot re-trigger the accel tap handler
+    s_anim_timer = app_timer_register(600, resubscribe_accel_callback, NULL);
   }
 }
 
@@ -82,6 +89,10 @@ static void start_roll(void) {
     app_timer_cancel(s_anim_timer);
     s_anim_timer = NULL;
   }
+
+  // Unsubscribe for the entire roll so the landing vibration
+  // cannot be picked up as a new tap event
+  accel_tap_service_unsubscribe();
 
   s_rolling     = true;
   s_anim_step   = 0;
@@ -131,9 +142,6 @@ static void click_config_provider(void *context) {
 
 // ── Accelerometer tap (wrist flick) — debounced ───────────────────────────────
 static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
-  uint32_t now = (uint32_t)time_ms(NULL, NULL);
-  if (now - s_last_accel_ms < ACCEL_DEBOUNCE_MS) return;
-  s_last_accel_ms = now;
   start_roll();
 }
 
