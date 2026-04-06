@@ -21,8 +21,8 @@ static const int DEFAULT_INDEX = 3;  // start on d6
 #define ANIM_STEPS     14
 #define ANIM_BASE_MS   60
 
-// ── Accel debounce ───────────────────────────────────────────────────────────
-// (handled by unsubscribing during roll — no timestamp needed)
+// Forward declaration so resubscribe_accel_callback can reference it
+static void accel_tap_handler(AccelAxisType axis, int32_t direction);
 
 // ── State ────────────────────────────────────────────────────────────────────
 static Window    *s_window;
